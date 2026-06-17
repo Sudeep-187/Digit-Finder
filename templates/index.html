@@ -1,0 +1,499 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>MNIST Digit Recognizer</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap');
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0a0a0f;
+      --surface: #13131a;
+      --border: #22222e;
+      --accent: #7c6af7;
+      --accent-glow: rgba(124, 106, 247, 0.25);
+      --green: #4ade80;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --bar-bg: #1e1e28;
+    }
+
+    body {
+      font-family: 'Space Grotesk', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+
+    header {
+      text-align: center;
+      margin-bottom: 36px;
+    }
+
+    header .label {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: var(--accent);
+      text-transform: uppercase;
+      margin-bottom: 10px;
+    }
+
+    header h1 {
+      font-size: clamp(28px, 5vw, 42px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      color: var(--text);
+    }
+
+    header p {
+      color: var(--muted);
+      margin-top: 8px;
+      font-size: 15px;
+      font-weight: 300;
+    }
+
+    .app {
+      display: flex;
+      gap: 28px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+      width: 100%;
+      max-width: 820px;
+    }
+
+    /* ---- CANVAS CARD ---- */
+    .canvas-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+      align-items: center;
+    }
+
+    .canvas-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      text-transform: uppercase;
+      align-self: flex-start;
+    }
+
+    canvas#drawCanvas {
+      width: 280px;
+      height: 280px;
+      background: #000;
+      border-radius: 10px;
+      cursor: crosshair;
+      border: 2px solid var(--border);
+      transition: border-color 0.2s;
+      touch-action: none;
+    }
+
+    canvas#drawCanvas:hover, canvas#drawCanvas.drawing {
+      border-color: var(--accent);
+      box-shadow: 0 0 20px var(--accent-glow);
+    }
+
+    .canvas-actions {
+      display: flex;
+      gap: 10px;
+      width: 100%;
+    }
+
+    button {
+      font-family: 'Space Grotesk', sans-serif;
+      font-weight: 600;
+      font-size: 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      padding: 10px 20px;
+      transition: all 0.15s;
+    }
+
+    .btn-predict {
+      background: var(--accent);
+      color: #fff;
+      flex: 1;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-predict:hover {
+      background: #9585f9;
+      box-shadow: 0 0 16px var(--accent-glow);
+    }
+
+    .btn-predict:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-clear {
+      background: var(--bar-bg);
+      color: var(--muted);
+      border: 1px solid var(--border);
+    }
+
+    .btn-clear:hover {
+      background: var(--border);
+      color: var(--text);
+    }
+
+    .brush-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      align-self: flex-start;
+      width: 100%;
+    }
+
+    .brush-row span {
+      font-size: 12px;
+      color: var(--muted);
+      font-family: 'Space Mono', monospace;
+    }
+
+    input[type=range] {
+      flex: 1;
+      accent-color: var(--accent);
+      cursor: pointer;
+    }
+
+    /* ---- RESULT CARD ---- */
+    .result-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 24px;
+      flex: 1;
+      min-width: 260px;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .result-header {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.14em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .big-digit {
+      text-align: center;
+      padding: 20px 0;
+    }
+
+    .big-digit .digit-num {
+      font-family: 'Space Mono', monospace;
+      font-size: 96px;
+      font-weight: 700;
+      color: var(--accent);
+      line-height: 1;
+      display: block;
+      text-shadow: 0 0 40px var(--accent-glow);
+      transition: all 0.3s ease;
+    }
+
+    .big-digit .digit-num.empty {
+      color: var(--border);
+      text-shadow: none;
+    }
+
+    .big-digit .conf-text {
+      font-size: 13px;
+      color: var(--muted);
+      margin-top: 8px;
+      font-family: 'Space Mono', monospace;
+    }
+
+    .big-digit .conf-text span {
+      color: var(--green);
+      font-weight: 700;
+    }
+
+    /* Bar chart */
+    .bars-label {
+      font-family: 'Space Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.12em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+
+    .bars {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+    }
+
+    .bar-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    .bar-row .digit-tag {
+      font-family: 'Space Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      width: 14px;
+      text-align: right;
+    }
+
+    .bar-track {
+      flex: 1;
+      height: 8px;
+      background: var(--bar-bg);
+      border-radius: 999px;
+      overflow: hidden;
+    }
+
+    .bar-fill {
+      height: 100%;
+      border-radius: 999px;
+      background: var(--accent);
+      transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+      width: 0%;
+    }
+
+    .bar-fill.winner {
+      background: var(--green);
+    }
+
+    .bar-pct {
+      font-family: 'Space Mono', monospace;
+      font-size: 11px;
+      color: var(--muted);
+      width: 40px;
+      text-align: right;
+    }
+
+    /* Status */
+    .status-msg {
+      font-size: 13px;
+      color: var(--muted);
+      text-align: center;
+      padding: 8px;
+      font-style: italic;
+    }
+
+    .status-msg.error {
+      color: #f87171;
+    }
+
+    /* Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <div class="label">CNN Model · MNIST</div>
+  <h1>Digit Recognizer</h1>
+  <p>Draw a digit 0–9 and watch the model predict it</p>
+</header>
+
+<div class="app">
+
+  <!-- CANVAS -->
+  <div class="canvas-card">
+    <span class="canvas-label">Draw here</span>
+    <canvas id="drawCanvas" width="280" height="280"></canvas>
+
+    <div class="brush-row">
+      <span>Brush</span>
+      <input type="range" id="brushSize" min="6" max="22" value="16" />
+      <span id="brushVal">20</span>
+    </div>
+
+    <div class="canvas-actions">
+      <button class="btn-predict" id="predictBtn" onclick="predict()">Predict</button>
+      <button class="btn-clear" onclick="clearCanvas()">Clear</button>
+    </div>
+  </div>
+
+  <!-- RESULT -->
+  <div class="result-card">
+    <div class="result-header">Prediction</div>
+
+    <div class="big-digit">
+      <span class="digit-num empty" id="digitDisplay">?</span>
+      <div class="conf-text" id="confDisplay">Draw a digit and hit Predict</div>
+    </div>
+
+    <div class="bars-label">Confidence per digit</div>
+    <div class="bars" id="barsContainer">
+      <!-- Generated by JS -->
+    </div>
+
+    <div class="status-msg" id="statusMsg"></div>
+  </div>
+
+</div>
+
+<script>
+  // --- Canvas setup ---
+  const canvas = document.getElementById('drawCanvas');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+
+  ctx.fillStyle = '#000';
+  ctx.fillRect(0, 0, 280, 280);
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#fff';
+
+  const brushSlider = document.getElementById('brushSize');
+  const brushVal = document.getElementById('brushVal');
+  brushSlider.addEventListener('input', () => {
+    brushVal.textContent = brushSlider.value;
+  });
+
+  function getPos(e) {
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    return {
+      x: (clientX - rect.left) * scaleX,
+      y: (clientY - rect.top) * scaleY
+    };
+  }
+
+  canvas.addEventListener('mousedown', e => { drawing = true; canvas.classList.add('drawing'); ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); });
+  canvas.addEventListener('mousemove', e => {
+    if (!drawing) return;
+    const p = getPos(e);
+    ctx.lineWidth = parseInt(brushSlider.value);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  });
+  canvas.addEventListener('mouseup', () => { drawing = false; canvas.classList.remove('drawing'); });
+  canvas.addEventListener('mouseleave', () => { drawing = false; canvas.classList.remove('drawing'); });
+
+  // Touch support
+  canvas.addEventListener('touchstart', e => { e.preventDefault(); drawing = true; ctx.beginPath(); const p = getPos(e); ctx.moveTo(p.x, p.y); }, { passive: false });
+  canvas.addEventListener('touchmove', e => {
+    e.preventDefault();
+    if (!drawing) return;
+    const p = getPos(e);
+    ctx.lineWidth = parseInt(brushSlider.value);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  }, { passive: false });
+  canvas.addEventListener('touchend', () => { drawing = false; });
+
+  function clearCanvas() {
+    ctx.fillStyle = '#000';
+    ctx.fillRect(0, 0, 280, 280);
+    resetResult();
+  }
+
+  // --- Build bars ---
+  const barsContainer = document.getElementById('barsContainer');
+  const barFills = [];
+  const barPcts = [];
+
+  for (let i = 0; i < 10; i++) {
+    const row = document.createElement('div');
+    row.className = 'bar-row';
+    row.innerHTML = `
+      <span class="digit-tag">${i}</span>
+      <div class="bar-track"><div class="bar-fill" id="bar${i}"></div></div>
+      <span class="bar-pct" id="pct${i}">—</span>
+    `;
+    barsContainer.appendChild(row);
+    barFills.push(document.getElementById('bar' + i));
+    barPcts.push(document.getElementById('pct' + i));
+  }
+
+  function resetResult() {
+    document.getElementById('digitDisplay').textContent = '?';
+    document.getElementById('digitDisplay').className = 'digit-num empty';
+    document.getElementById('confDisplay').textContent = 'Draw a digit and hit Predict';
+    barFills.forEach((b, i) => { b.style.width = '0%'; b.classList.remove('winner'); barPcts[i].textContent = '—'; });
+    document.getElementById('statusMsg').textContent = '';
+    document.getElementById('statusMsg').className = 'status-msg';
+  }
+
+  // --- Predict ---
+  async function predict() {
+    const btn = document.getElementById('predictBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span>Predicting…';
+    document.getElementById('statusMsg').innerHTML = '';
+
+    const imageData = canvas.toDataURL('image/png');
+
+    try {
+      const res = await fetch('/predict', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ image: imageData })
+      });
+
+      const data = await res.json();
+
+      if (data.error) throw new Error(data.error);
+
+      // Update big digit
+      const dispEl = document.getElementById('digitDisplay');
+      dispEl.textContent = data.digit;
+      dispEl.className = 'digit-num';
+
+      document.getElementById('confDisplay').innerHTML =
+        `Confidence: <span>${data.confidence}%</span>`;
+
+      // Update bars
+      data.probabilities.forEach((p, i) => {
+        barFills[i].style.width = p + '%';
+        barFills[i].classList.toggle('winner', i === data.digit);
+        barPcts[i].textContent = p + '%';
+      });
+
+    } catch (err) {
+      document.getElementById('statusMsg').textContent = 'Error: ' + err.message;
+      document.getElementById('statusMsg').className = 'status-msg error';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = 'Predict';
+    }
+  }
+
+  // Keyboard shortcut: Enter to predict, Escape to clear
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Enter') predict();
+    if (e.key === 'Escape') clearCanvas();
+  });
+</script>
+</body>
+</html>
