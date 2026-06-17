@@ -3,7 +3,7 @@ from flask_cors import CORS
 import tensorflow as tf
 import numpy as np
 from PIL import Image, ImageFilter
-from scipy.ndimage import center_of_mass, zoom
+
 import base64
 import io
 import os
@@ -22,7 +22,7 @@ def preprocess_canvas(img_bytes):
     2. Crop tight to digit bounding box
     3. Thin thick strokes via erosion-like resize
     4. Resize to 20x20 preserving aspect ratio
-    5. Pad to 28x28 with digit centered at center of mass (MNIST style)
+    5. Pad to 28x28 with digit centered (simple centering)
     6. Normalize
     """
     img = Image.open(io.BytesIO(img_bytes)).convert("L")
@@ -51,22 +51,11 @@ def preprocess_canvas(img_bytes):
     cropped_img = Image.fromarray(cropped).resize((new_w, new_h), Image.LANCZOS)
     resized = np.array(cropped_img, dtype=np.float32)
 
-    # --- 3. Place on 28x28 canvas, centered at center of mass (MNIST style) ---
-    canvas = np.zeros((28, 28), dtype=np.float32)
-    # Center of mass of the resized digit
-    cy, cx = center_of_mass(resized)
-    if np.isnan(cy): cy = new_h / 2
-    if np.isnan(cx): cx = new_w / 2
-
-    # Target: center of mass should land at (14, 14)
-    top  = int(round(14 - cy))
-    left = int(round(14 - cx))
-
-    # Clamp so it fits
-    top  = max(0, min(top,  28 - new_h))
-    left = max(0, min(left, 28 - new_w))
-
-    canvas[top:top+new_h, left:left+new_w] = resized
+     # --- 3. Place on 28x28 canvas, centered (simple centering) ---
+     canvas = np.zeros((28, 28), dtype=np.float32)
+     top = (28 - new_h) // 2
+     left = (28 - new_w) // 2
+     canvas[top:top+new_h, left:left+new_w] = resized
 
     # --- 4. Normalize to [0, 1] ---
     canvas = canvas / 255.0
@@ -107,3 +96,5 @@ def predict():
 if __name__ == "__main__":
     print("🚀 Running on http://localhost:5000")
     app.run(debug=True, port=5000)
+
+
